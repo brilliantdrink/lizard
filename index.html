@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lizard Button</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+
+        height: 100vh;
+        box-sizing: border-box;
+        padding-bottom: 10vh;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+        font-size: 1.5rem;
+
+        background: #222;
+        color: #fff;
+      }
+
+      #personal-counter, #global-counter {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+      }
+
+      #global-counter {
+        left: initial;
+        right: 1rem;
+      }
+
+      #lizard-video {
+        width: 30vh;
+        height: 30vh;
+      }
+
+      #big-button {
+        width: 30vh;
+        height: 30vh;
+        border-radius: 50%;
+        border: 1px solid #444;
+        background: radial-gradient(farthest-corner at 20% 20%, #222, #292929, #2b2b2b);
+        box-shadow: 0 0 5vh #111;
+        font-size: 10vh;
+      }
+
+      #big-button:active {
+        box-shadow: 0 0 2vh #111;
+        transform: scale(0.99);
+      }
+    </style>
+</head>
+<body>
+<span id="personal-counter">Counter:&nbsp;<span class="count">0</span></span>
+<span id="global-counter">Global counter:&nbsp;<span class="count">0</span></span>
+<video id="lizard-video" src="lizard.webm"></video>
+<button id="big-button">&#129422;</button>
+<script>
+  const button = document.getElementById('big-button');
+  const video = document.getElementById('lizard-video');
+  const counter = document.querySelector('#global-counter .count');
+  const personalCounter = document.querySelector('#personal-counter .count');
+
+  const ws = new WebSocket('wss://api.b-dr.ink/lizard')
+  ws.addEventListener("message", (event) => {
+    clickCount = event.data || 0;
+    counter.textContent = clickCount
+  })
+
+  let clickCount = 0;
+  let personalClickCount = 0;
+
+  const audioPool = [];
+  const poolSize = 5;
+  let currentAudioIndex = 0;
+  let audioBuffer = null;
+  let audioContext = null;
+
+  function initializeAudioContext() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContext;
+  }
+
+  async function loadAudioBuffer() {
+    if (audioBuffer) return audioBuffer;
+
+    try {
+      const audioCtx = initializeAudioContext();
+      const response = await fetch('lizard.wav');
+      const arrayBuffer = await response.arrayBuffer();
+      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      return audioBuffer;
+    } catch (error) {
+      console.log('Failed to load audio buffer, falling back to HTML Audio:', error);
+      return null;
+    }
+  }
+
+  for (let i = 0; i < poolSize; i++) {
+    const audio = new Audio('lizard.wav');
+    audio.preload = 'auto';
+    audio.volume = 1.0;
+    audioPool.push(audio);
+  }
+
+  async function lizard() {
+    video.currentTime = 0;
+    video.play();
+
+    if (audioBuffer && audioContext) {
+      try {
+        const audioCtx = audioContext;
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.start(0);
+        return;
+      } catch (error) {
+        console.log('Web Audio API failed, falling back to HTML Audio:', error);
+      }
+    }
+
+    const audio = audioPool[currentAudioIndex];
+
+    if (!audio.paused) audio.pause();
+    audio.currentTime = 0;
+
+    try {
+      await audio.play();
+    } catch (error) {
+      currentAudioIndex = (currentAudioIndex + 1) % poolSize;
+    }
+
+    currentAudioIndex = (currentAudioIndex + 1) % poolSize;
+  }
+
+  button.addEventListener('click', () => {
+    lizard();
+
+    clickCount++;
+    counter.textContent = clickCount
+
+    personalClickCount++;
+    personalCounter.textContent = personalClickCount;
+    localStorage.setItem('personalClickCount', personalClickCount.toString());
+    ws.send("1")
+  });
+
+  window.addEventListener('load', async () => {
+    try {
+      await loadAudioBuffer();
+    } catch (error) {
+      console.log('Web Audio initialization failed, using HTML Audio fallback');
+    }
+
+    audioPool.forEach(audio => audio.load());
+    const saved = localStorage.getItem('personalClickCount');
+    personalClickCount = saved ? parseInt(saved, 10) : 0;
+    personalCounter.textContent = personalClickCount;
+  });
+
+</script>
+</body>
+</html>

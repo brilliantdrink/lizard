@@ -1,0 +1,17 @@
+{
+  "name": "lizard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "build": "",
+    "start": "node server.js"
+  },
+  "private": true,
+  "dependencies": {
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7",
+    "uwebsockets": "^3.0.2"
+  }
+}

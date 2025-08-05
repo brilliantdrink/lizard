@@ -66,7 +66,7 @@
   const counter = document.querySelector('#global-counter .count');
   const personalCounter = document.querySelector('#personal-counter .count');
 
-  const ws = new WebSocket('wss://api.b-dr.ink/lizard')
+  const ws = new WebSocket('wss://api.b-dr.ink/lizard/')
   ws.addEventListener("message", (event) => {
     clickCount = event.data || 0;
     counter.textContent = clickCount

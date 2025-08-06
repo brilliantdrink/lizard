@@ -23,6 +23,21 @@
         color: #fff;
       }
 
+      #background, #background-underlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 10000vh;
+        width: 10000vw;
+        transform-origin: top left;
+        transform: scale(.01);
+
+        font-size: 1vw;
+        opacity: 0.2;
+        z-index: -10;
+        pointer-events: none;
+      }
+
       #personal-counter, #global-counter {
         position: fixed;
         top: 1rem;
@@ -48,6 +63,7 @@
         box-shadow: 0 0 5vh #111;
         font-size: 10vh;
         touch-action: manipulation;
+        user-select: none;
       }
 
       #big-button:active {
@@ -57,6 +73,7 @@
     </style>
 </head>
 <body>
+<div id="background"></div>
 <span id="personal-counter">Counter:&nbsp;<span class="count">0</span></span>
 <span id="global-counter">Global counter:&nbsp;<span class="count">0</span></span>
 <video id="lizard-video" src="lizard.webm" playsinline muted></video>
@@ -70,10 +87,25 @@
     return isSafari && hasMediaCapabilities
   }
 
+  const filledBackground = 16000
+
   const button = document.getElementById('big-button');
   const video = document.getElementById('lizard-video');
+  const background = document.getElementById('background');
+  const backgroundUnderlay = document.createElement('div');
+  backgroundUnderlay.id = 'background-underlay';
+  backgroundUnderlay.innerHTML = Array(filledBackground).fill('&#129422;').join('');
+  let backgroundUnderlayAppended = false
   const counter = document.querySelector('#global-counter .count');
   const personalCounter = document.querySelector('#personal-counter .count');
+
+  const updateBgFontSize = () => {
+    const size = Math.sqrt(window.innerWidth * window.innerHeight) * .7 + 'px'
+    background.style.fontSize = size;
+    backgroundUnderlay.style.fontSize = size;
+  }
+  window.addEventListener('resize', updateBgFontSize);
+  updateBgFontSize()
 
   if (supportsHEVCAlpha()) {
     video.src = 'lizard.mov'
@@ -95,6 +127,21 @@
   let currentAudioIndex = 0;
   let audioBuffer = null;
   let audioContext = null;
+
+  const saved = localStorage.getItem('personalClickCount');
+  personalClickCount = saved ? parseInt(saved, 10) : 0;
+  updateCountRender(personalClickCount)
+
+  function updateCountRender(count) {
+    personalCounter.textContent = count;
+    if (!backgroundUnderlayAppended && count > filledBackground) {
+      backgroundUnderlayAppended = true
+      document.body.append(backgroundUnderlay)
+      background.style.opacity = "0.1"
+    }
+    backgroundUnderlay.style.opacity = String(0.2 + ((Math.floor(count / filledBackground) - 1) / 10))
+    background.innerHTML = Array(count % filledBackground).fill('&#129422;').join('');
+  }
 
   function initializeAudioContext() {
     if (!audioContext) {
@@ -123,6 +170,12 @@
     audio.preload = 'auto';
     audio.volume = 1.0;
     audioPool.push(audio);
+  }
+
+  try {
+    loadAudioBuffer().then(() => audioPool.forEach(audio => audio.load()))
+  } catch (error) {
+    console.log('Web Audio initialization failed, using HTML Audio fallback');
   }
 
   async function lizard() {
@@ -165,22 +218,9 @@
     counter.textContent = clickCount
 
     personalClickCount++;
-    personalCounter.textContent = personalClickCount;
+    updateCountRender(personalClickCount);
     localStorage.setItem('personalClickCount', personalClickCount.toString());
     ws.send("1")
-  });
-
-  window.addEventListener('load', async () => {
-    try {
-      await loadAudioBuffer();
-    } catch (error) {
-      console.log('Web Audio initialization failed, using HTML Audio fallback');
-    }
-
-    audioPool.forEach(audio => audio.load());
-    const saved = localStorage.getItem('personalClickCount');
-    personalClickCount = saved ? parseInt(saved, 10) : 0;
-    personalCounter.textContent = personalClickCount;
   });
 
 </script>

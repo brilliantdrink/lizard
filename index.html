@@ -47,6 +47,7 @@
         background: radial-gradient(farthest-corner at 20% 20%, #222, #292929, #2b2b2b);
         box-shadow: 0 0 5vh #111;
         font-size: 10vh;
+        touch-action: manipulation;
       }
 
       #big-button:active {
@@ -58,13 +59,27 @@
 <body>
 <span id="personal-counter">Counter:&nbsp;<span class="count">0</span></span>
 <span id="global-counter">Global counter:&nbsp;<span class="count">0</span></span>
-<video id="lizard-video" src="lizard.webm"></video>
+<video id="lizard-video" src="lizard.webm" playsinline muted></video>
 <button id="big-button">&#129422;</button>
 <script>
+  function supportsHEVCAlpha() {
+    const navigator = window.navigator;
+    const ua = navigator.userAgent.toLowerCase()
+    const hasMediaCapabilities = !!(navigator.mediaCapabilities && navigator.mediaCapabilities.decodingInfo)
+    const isSafari = ua.includes('safari') && !ua.includes('chrome') && ua.includes('version/')
+    return isSafari && hasMediaCapabilities
+  }
+
   const button = document.getElementById('big-button');
   const video = document.getElementById('lizard-video');
   const counter = document.querySelector('#global-counter .count');
   const personalCounter = document.querySelector('#personal-counter .count');
+
+  if (supportsHEVCAlpha()) {
+    video.src = 'lizard.mov'
+    video.play()
+    setTimeout(() => video.pause())
+  }
 
   const ws = new WebSocket('wss://api.b-dr.ink/lizard/')
   ws.addEventListener("message", (event) => {
